@@ -61,6 +61,20 @@ LeAI Companion uses Picovoice's Porcupine wake word detection library to listen 
 
 4. To stop the program, press Ctrl+C.
 
+## Speech-to-Text
+
+The companion uses speech recognition to convert your voice into text. This enables natural voice interactions with the AI assistant. The system automatically starts listening for your voice input after detecting the wake word.
+
+To ensure optimal speech recognition:
+- Speak clearly and at a normal pace
+- Use a good quality microphone
+- Minimize background noise
+
+To run the speech-to-text example:
+```bash
+python src/speech_to_text.py  --model vosk-model-small-en-us-0.15
+```
+
 ## License and Attribution
 
 This project uses Picovoice's Porcupine library, which requires a valid access key. See [Picovoice's licensing terms](https://picovoice.ai/docs/terms-of-use/) for more information.
