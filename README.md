@@ -54,7 +54,7 @@ LeAI Companion uses Picovoice's Porcupine wake word detection library to listen 
 
 2. Run the main script:
    ```bash
-   python src/main.py
+   python src/wake_word_detector_cli.py
    ```
 
 3. The program will start listening for wake words. By default, it listens for configured wake words that activate your AI companion.
