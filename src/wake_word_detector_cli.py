@@ -1,3 +1,10 @@
+"""
+Wake word detector command line interface using Picovoice.
+
+Example usage:
+    python src/wake_word_detector_cli.py
+"""
+
 import time
 import os
 from dotenv import load_dotenv

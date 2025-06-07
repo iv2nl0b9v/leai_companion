@@ -4,13 +4,14 @@ An AI companion for Leia that uses wake word detection to enable voice-activated
 
 ## Overview
 
-LeAI Companion uses Picovoice's Porcupine wake word detection library to listen for specific keywords, allowing for hands-free activation of your AI companion.
+LeAI Companion uses Picovoice's Porcupine wake word detection library to listen for specific keywords, allowing for hands-free activation of your AI companion. When activated, it uses speech recognition to understand your commands and communicates with Google's Gemini AI to provide intelligent responses.
 
 ## Prerequisites
 
 - Python 3.7 or later
 - A microphone connected to your computer
 - Picovoice Access Key (get it from [Picovoice Console](https://console.picovoice.ai/))
+- Google API Key (get it from [Google AI Studio](https://makersuite.google.com/app/apikey))
 
 ## Setup and Installation
 
@@ -36,9 +37,10 @@ LeAI Companion uses Picovoice's Porcupine wake word detection library to listen 
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the project root and add your Picovoice access key:
+4. Create a `.env` file in the project root and add your API keys:
    ```
-   PICOVOICE_ACCESS_KEY=your_access_key_here
+   PICOVOICE_ACCESS_KEY=your_picovoice_key_here
+   GOOGLE_API_KEY=your_google_api_key_here
    ```
 
 ## Usage of the wake word example
@@ -74,6 +76,23 @@ To run the speech-to-text example:
 ```bash
 python src/speech_to_text.py  --model vosk-model-small-en-us-0.15
 ```
+
+## Talking to the companion
+
+The companion runs a wake word recognition server that launches speech recognition when activated and uses the Gemini streaming API to communicate. It streams the recognized words to Gemini and streams the AI's responses back to you in real-time.
+
+To run the AI companion:
+```bash
+python src/talk_to_ai.py --vosk_model vosk-model-small-en-us-0.15 --wake_keyword bumblebee
+```
+
+The companion will:
+1. Listen for the wake word ("bumblebee" by default)
+2. When the wake word is detected, start listening for your command
+3. Convert your speech to text
+4. Send your command to Gemini AI
+5. Stream Gemini's response back to you
+6. Return to listening for further commands
 
 ## License and Attribution
 
