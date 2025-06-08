@@ -77,6 +77,15 @@ To run the speech-to-text example:
 python src/speech_to_text.py  --model vosk-model-small-en-us-0.15
 ```
 
+### Google Cloud Speech-to-Text
+
+Experimenting with cloud STT, seems of decent quality and speed.
+
+To run the Google Cloud speech-to-text example:
+```bash
+python src/google_cloud_speech_cli.py
+```
+
 ## Talking to the companion
 
 The companion runs a wake word recognition server that launches speech recognition when activated and uses the Gemini streaming API to communicate. It streams the recognized words to Gemini and streams the AI's responses back to you in real-time.
