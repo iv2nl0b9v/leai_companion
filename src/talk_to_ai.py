@@ -1,3 +1,25 @@
+"""
+AI Companion with Voice Interaction
+
+This script runs an AI companion that listens for a wake word and then
+transcribes your voice command to interact with a Gemini model.
+
+Usage:
+    - To run the AI companion:
+        python src/talk_to_ai --wake_keyword "your-wake-word" [optional arguments]
+
+    - To list available audio devices:
+        python src/talk_to_ai --list-devices
+
+Optional Arguments:
+    --device DEVICE_INDEX         : Index of the audio input device to use.
+    --latency SECONDS             : Audio stream latency (default: 0.1).
+    --gemini_model MODEL_NAME     : Gemini model to use (default: gemini-2.5-flash-preview-05-20).
+
+Example:
+    python src/talk_to_ai --wake_keyword "bumblebee" --device 1
+"""
+
 import os
 import argparse
 import threading
@@ -5,14 +27,13 @@ from typing import Optional, NoReturn, Union, Dict, Any, Literal
 import google.generativeai as genai
 from dotenv import load_dotenv
 from wake_word_detector_lib import WakeWordDetector
-from speech_to_text_lib import SpeechToText
+from google_cloud_speech_lib import SpeechRecognizer
 import time
 
 
 class AICompanion:
     def __init__(
         self,
-        vosk_model: str,
         wake_keyword: str,
         device: Optional[Union[int, str, Dict[str, Any]]] = None,
         latency: float = 0.1,
@@ -21,7 +42,6 @@ class AICompanion:
         """Initialize the AI companion.
 
         Args:
-            vosk_model (str): Path to the Vosk model
             wake_keyword (str): Wake keyword to listen for
             device (Union[int, str, dict], optional): Audio input device (index, name, or dict)
             latency (float): Audio stream latency in seconds
@@ -52,9 +72,8 @@ class AICompanion:
         )
 
         # Initialize speech recognition
-        self.speech_to_text = SpeechToText(
-            model=vosk_model, device=device, latency=latency
-        )
+        device_index = device if isinstance(device, int) else None
+        self.speech_recognizer = SpeechRecognizer(device_index=device_index)
         self.listening_for_command = False
         self.command_thread: Optional[threading.Thread] = None
 
@@ -85,12 +104,21 @@ class AICompanion:
                 response_text += chunk_text
             print("\n")
 
-            # Stop listening after processing the command
-            self.listening_for_command = False
+            # Continue listening after processing the command
+            self.listening_for_command = True
 
     def listen_for_command(self) -> None:
         """Listen for and process voice commands."""
-        self.speech_to_text.process_audio(self.on_speech_text)
+        try:
+            with self.speech_recognizer:
+                for transcript, is_final in self.speech_recognizer.recognize_stream():
+                    self.on_speech_text(transcript, not is_final)
+                    if not self.listening_for_command:
+                        break
+        except Exception as e:
+            print(f"An error occurred during speech recognition: {e}")
+        finally:
+            self.listening_for_command = False
 
     def run(self) -> NoReturn:
         """Run the AI companion."""
@@ -118,7 +146,6 @@ def main() -> None:
     optional_args = parser.add_argument_group("optional arguments")
 
     # Required arguments (only if not listing devices)
-    required_args.add_argument("--vosk_model", help="Path to Vosk model")
     required_args.add_argument("--wake_keyword", help="Wake keyword to listen for")
 
     # Optional arguments
@@ -134,7 +161,6 @@ def main() -> None:
     optional_args.add_argument(
         "--gemini_model",
         type=str,
-        choices=["gemini-pro", "gemini-pro-vision", "gemini-2.5-flash-preview-05-20"],
         default="gemini-2.5-flash-preview-05-20",
         help="Gemini model to use (default: %(default)s)",
     )
@@ -146,15 +172,14 @@ def main() -> None:
         return
 
     # Validate required arguments if not just listing devices
-    if not args.vosk_model or not args.wake_keyword:
+    if not args.wake_keyword:
         if not args.list_devices:
             parser.error(
-                "--vosk_model and --wake_keyword are required unless --list-devices is specified"
+                "--wake_keyword is required unless --list-devices is specified"
             )
         return
 
     companion = AICompanion(
-        vosk_model=args.vosk_model,
         wake_keyword=args.wake_keyword,
         device=args.device,
         latency=args.latency,

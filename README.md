@@ -92,7 +92,7 @@ The companion runs a wake word recognition server that launches speech recogniti
 
 To run the AI companion:
 ```bash
-python src/talk_to_ai.py --vosk_model vosk-model-small-en-us-0.15 --wake_keyword bumblebee
+python src/talk_to_ai.py --wake_keyword bumblebee
 ```
 
 The companion will:
@@ -101,7 +101,7 @@ The companion will:
 3. Convert your speech to text
 4. Send your command to Gemini AI
 5. Stream Gemini's response back to you
-6. Return to listening for further commands
+6. Continue to listen for further commands until you stop the program
 
 ## License and Attribution
 

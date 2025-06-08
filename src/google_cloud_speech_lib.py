@@ -6,7 +6,13 @@ from dotenv import load_dotenv
 class SpeechRecognizer:
     """A class to handle streaming speech recognition."""
 
-    def __init__(self, rate=16000, chunk=1600, language_code="en-US"):
+    def __init__(
+        self,
+        rate: int = 16000,
+        chunk: int = 1600,
+        language_code: str = "en-US",
+        device_index: int | None = None,
+    ):
         """Initializes the speech recognizer."""
         self.rate = rate
         self.chunk = chunk
@@ -15,6 +21,7 @@ class SpeechRecognizer:
         self.streaming_config = None
         self.audio = None
         self.stream = None
+        self.device_index = device_index
 
     def __enter__(self):
         """Sets up the speech client and audio stream."""
@@ -38,6 +45,7 @@ class SpeechRecognizer:
             rate=self.rate,
             input=True,
             frames_per_buffer=self.chunk,
+            input_device_index=self.device_index,
         )
         return self
 
