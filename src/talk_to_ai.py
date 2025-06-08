@@ -24,7 +24,8 @@ import os
 import argparse
 import threading
 import re
-from typing import Optional, NoReturn, Union, Dict, Any, Literal
+import logging
+from typing import Optional, NoReturn, Union, Dict, Any
 import google.generativeai as genai
 from dotenv import load_dotenv
 from wake_word_detector_lib import WakeWordDetector
@@ -67,7 +68,7 @@ class AICompanion:
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
         genai.configure(api_key=api_key)
-        print(f"\nInitializing Gemini with model: {model_name}")
+        logging.info(f"Initializing Gemini with model: {model_name}")
         self.model: genai.GenerativeModel = genai.GenerativeModel(
             model_name,
             system_instruction=_SYSTEM_INSTRUCTIONS,
@@ -99,7 +100,7 @@ class AICompanion:
     def on_wake_word(self, keyword: str) -> None:
         """Called when wake word is detected."""
         if not self.listening_for_command:
-            print("\nWake word detected! Listening for your command...")
+            logging.info("Wake word detected! Listening for your command...")
             self.listening_for_command = True
             self.command_thread = threading.Thread(target=self.listen_for_command)
             self.command_thread.start()
@@ -109,7 +110,7 @@ class AICompanion:
         try:
             while self.listening_for_command:
                 command_text: Optional[str] = None
-                print("\nListening...")
+                logging.info("Listening...")
 
                 with self.speech_recognizer:
                     for (
@@ -120,6 +121,7 @@ class AICompanion:
                             command_text = transcript.strip()
                             print(f"\r{' ' * 80}\r", end="")
                             print(f"You: {command_text}")
+                            logging.info(f"You: {command_text}")
                             break
                         elif not is_final and transcript.strip():
                             print(
@@ -128,7 +130,7 @@ class AICompanion:
 
                 if command_text:
                     if command_text.lower().strip() in ["goodbye", "exit", "stop"]:
-                        print("\nAI: Goodbye!")
+                        logging.info("Goodbye.")
                         self.tts.speak("Goodbye!")
                         self.tts.wait()
                         break
@@ -157,30 +159,31 @@ class AICompanion:
                         self.tts.speak(sentence_buffer.strip())
 
                     self.tts.wait()
+                    logging.info(f"AI: {response_text}")
                     print()
                 else:
-                    print("Did not catch that. Please try again.")
+                    logging.warning("Did not catch that. Please try again.")
 
         except Exception as e:
-            print(f"An error occurred during the conversation: {e}")
+            logging.error(f"An error occurred during the conversation: {e}", exc_info=True)
         finally:
             self.listening_for_command = False
-            print("\nConversation ended. Say the wake word to start again.")
+            logging.info("Conversation ended. Say the wake word to start again.")
 
     def run(self) -> NoReturn:
         """Run the AI companion."""
-        print(f"AI Companion is ready! Say the wake word to begin...")
+        logging.info("AI Companion is ready! Say the wake word to begin...")
         while True:
             try:
                 with self.wake_detector, self.tts:
                     while True:
                         time.sleep(0.1)
             except KeyboardInterrupt:
-                print("\nShutting down AI Companion...")
+                logging.info("Shutting down AI Companion...")
                 break
             except Exception as e:
-                print(f"\nAn unexpected error occurred in the main loop: {e}")
-                print("Attempting to recover...")
+                logging.error(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
+                logging.warning("Attempting to recover...")
                 time.sleep(0.5)
 
 
@@ -193,6 +196,11 @@ def list_audio_devices() -> None:
 def main() -> None:
     """Main entry point for the AI companion application."""
     parser = argparse.ArgumentParser(description="AI Companion with voice interaction")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
 
     # Create argument groups
     required_args = parser.add_argument_group("required arguments")
