@@ -33,6 +33,17 @@ from google_cloud_tts_lib import TextToSpeech
 import time
 
 
+_SYSTEM_INSTRUCTIONS = """\
+You are an AI companion for a 9 year old girl named Leia.
+You are integrated into a system that decodes voice into text and then send it to you.
+Your output text is sent to a text-to-speech engine that converts it into audio and then plays it back to the user.
+
+This setup may have the following limitations:
+- Speech-to-text may not be perfect, so you may need to guess what the user is saying.
+- When your output is being spoken, you cannot hear the user's response, so may lose some context. Also avoid long answers unless the user asks for more details.
+"""
+
+
 class AICompanion:
     def __init__(
         self,
@@ -57,7 +68,10 @@ class AICompanion:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
         genai.configure(api_key=api_key)
         print(f"\nInitializing Gemini with model: {model_name}")
-        self.model: genai.GenerativeModel = genai.GenerativeModel(model_name)
+        self.model: genai.GenerativeModel = genai.GenerativeModel(
+            model_name,
+            system_instruction=_SYSTEM_INSTRUCTIONS,
+        )
         self.chat: genai.ChatSession = self.model.start_chat(history=[])
 
         # Initialize wake word detector
@@ -156,12 +170,18 @@ class AICompanion:
     def run(self) -> NoReturn:
         """Run the AI companion."""
         print(f"AI Companion is ready! Say the wake word to begin...")
-        try:
-            with self.wake_detector, self.tts:
-                while True:
-                    time.sleep(0.1)
-        except KeyboardInterrupt:
-            print("\nShutting down AI Companion...")
+        while True:
+            try:
+                with self.wake_detector, self.tts:
+                    while True:
+                        time.sleep(0.1)
+            except KeyboardInterrupt:
+                print("\nShutting down AI Companion...")
+                break
+            except Exception as e:
+                print(f"\nAn unexpected error occurred in the main loop: {e}")
+                print("Attempting to recover...")
+                time.sleep(0.5)
 
 
 def list_audio_devices() -> None:
