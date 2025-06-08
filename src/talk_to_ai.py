@@ -6,10 +6,10 @@ transcribes your voice command to interact with a Gemini model.
 
 Usage:
     - To run the AI companion:
-        python src/talk_to_ai --wake_keyword "your-wake-word" [optional arguments]
+        python src/talk_to_ai.py --wake_keyword "your-wake-word" [optional arguments]
 
     - To list available audio devices:
-        python src/talk_to_ai --list-devices
+        python src/talk_to_ai.py --list-devices
 
 Optional Arguments:
     --device DEVICE_INDEX         : Index of the audio input device to use.
@@ -17,17 +17,19 @@ Optional Arguments:
     --gemini_model MODEL_NAME     : Gemini model to use (default: gemini-2.5-flash-preview-05-20).
 
 Example:
-    python src/talk_to_ai --wake_keyword "bumblebee" --device 1
+    python src/talk_to_ai.py --wake_keyword "bumblebee" --device 1
 """
 
 import os
 import argparse
 import threading
+import re
 from typing import Optional, NoReturn, Union, Dict, Any, Literal
 import google.generativeai as genai
 from dotenv import load_dotenv
 from wake_word_detector_lib import WakeWordDetector
 from google_cloud_speech_lib import SpeechRecognizer
+from google_cloud_tts_lib import TextToSpeech
 import time
 
 
@@ -77,6 +79,9 @@ class AICompanion:
         self.listening_for_command = False
         self.command_thread: Optional[threading.Thread] = None
 
+        # Initialize Text-to-Speech
+        self.tts = TextToSpeech()
+
     def on_wake_word(self, keyword: str) -> None:
         """Called when wake word is detected."""
         if not self.listening_for_command:
@@ -85,46 +90,74 @@ class AICompanion:
             self.command_thread = threading.Thread(target=self.listen_for_command)
             self.command_thread.start()
 
-    def on_speech_text(self, text: str, is_partial: bool) -> None:
-        """Handle recognized speech text."""
-        if not is_partial and text.strip():
-            print(f"\nYou: {text}")
-
-            # Get AI response
-            response: genai.GenerateContentResponse = self.chat.send_message(
-                text, stream=True
-            )
-
-            # Print AI response
-            print("\nAI: ", end="")
-            response_text: str = ""
-            for chunk in response:
-                chunk_text: str = chunk.text
-                print(chunk_text, end="", flush=True)
-                response_text += chunk_text
-            print("\n")
-
-            # Continue listening after processing the command
-            self.listening_for_command = True
-
     def listen_for_command(self) -> None:
-        """Listen for and process voice commands."""
+        """Listen for and process voice commands in a continuous conversation."""
         try:
-            with self.speech_recognizer:
-                for transcript, is_final in self.speech_recognizer.recognize_stream():
-                    self.on_speech_text(transcript, not is_final)
-                    if not self.listening_for_command:
+            while self.listening_for_command:
+                command_text: Optional[str] = None
+                print("\nListening...")
+
+                with self.speech_recognizer:
+                    for (
+                        transcript,
+                        is_final,
+                    ) in self.speech_recognizer.recognize_stream():
+                        if is_final and transcript.strip():
+                            command_text = transcript.strip()
+                            print(f"\r{' ' * 80}\r", end="")
+                            print(f"You: {command_text}")
+                            break
+                        elif not is_final and transcript.strip():
+                            print(
+                                f"\rYou (thinking...): {transcript}", end="", flush=True
+                            )
+
+                if command_text:
+                    if command_text.lower().strip() in ["goodbye", "exit", "stop"]:
+                        print("\nAI: Goodbye!")
+                        self.tts.speak("Goodbye!")
+                        self.tts.wait()
                         break
+
+                    response: genai.GenerateContentResponse = self.chat.send_message(
+                        command_text, stream=True
+                    )
+
+                    print("\nAI: ", end="")
+                    response_text: str = ""
+                    sentence_buffer: str = ""
+                    for chunk in response:
+                        chunk_text: str = chunk.text
+                        print(chunk_text, end="", flush=True)
+                        response_text += chunk_text
+                        sentence_buffer += chunk_text
+
+                        if any(p in sentence_buffer for p in ".!?"):
+                            sentences = re.split(r"(?<=[.!?])\s*", sentence_buffer)
+                            for sentence in sentences[:-1]:
+                                if sentence.strip():
+                                    self.tts.speak(sentence.strip())
+                            sentence_buffer = sentences[-1]
+
+                    if sentence_buffer.strip():
+                        self.tts.speak(sentence_buffer.strip())
+
+                    self.tts.wait()
+                    print()
+                else:
+                    print("Did not catch that. Please try again.")
+
         except Exception as e:
-            print(f"An error occurred during speech recognition: {e}")
+            print(f"An error occurred during the conversation: {e}")
         finally:
             self.listening_for_command = False
+            print("\nConversation ended. Say the wake word to start again.")
 
     def run(self) -> NoReturn:
         """Run the AI companion."""
         print(f"AI Companion is ready! Say the wake word to begin...")
         try:
-            with self.wake_detector:
+            with self.wake_detector, self.tts:
                 while True:
                     time.sleep(0.1)
         except KeyboardInterrupt:
